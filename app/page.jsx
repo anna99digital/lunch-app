@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 // 99Digital official logo (pin pair + "Digital" wordmark)
 function NineNineDigitalLogo({ height = 34 }) {
@@ -100,6 +100,28 @@ const BAGUETTES = [
 const TODAY_KEY = JS_DAY_TO_KEY[new Date().getDay()];
 const TODAY_LABEL = new Date().toLocaleDateString("he-IL", { weekday: "long", day: "numeric", month: "long" });
 
+// Orders may only be sent between 00:00 and 09:14 Israel time (Asia/Jerusalem).
+const ORDER_WINDOW_END_MINUTES = 9 * 60 + 14; // 09:14
+
+function israeliMinutesNow() {
+  // Current time-of-day in minutes, evaluated in the Asia/Jerusalem timezone
+  // regardless of the device's local timezone.
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Jerusalem",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(new Date());
+  const hour = parseInt(parts.find(p => p.type === "hour").value, 10) % 24;
+  const minute = parseInt(parts.find(p => p.type === "minute").value, 10);
+  return hour * 60 + minute;
+}
+
+function isOrderWindowOpen() {
+  const m = israeliMinutesNow();
+  return m >= 0 && m <= ORDER_WINDOW_END_MINUTES;
+}
+
 async function sendToWebhook(payload) {
   try {
     await fetch(WEBHOOK_URL, {
@@ -127,6 +149,17 @@ export default function FoodOrderApp() {
   const [sending, setSending] = useState(false);
   const [done, setDone] = useState(false);
   const [toast, setToast] = useState(null);
+  const [windowOpen, setWindowOpen] = useState(true);
+
+  // Keep the order window status in sync with the Israeli clock. Start true to
+  // match the server render and avoid hydration mismatch, then re-check on mount
+  // and every 15s so the button disables itself the moment 09:14 passes.
+  useEffect(() => {
+    const update = () => setWindowOpen(isOrderWindowOpen());
+    update();
+    const id = setInterval(update, 15000);
+    return () => clearInterval(id);
+  }, []);
 
   const menu = MENU[day];
 
@@ -186,6 +219,11 @@ export default function FoodOrderApp() {
 
   const handleSubmit = async () => {
     if (!isComplete) return;
+    if (!isOrderWindowOpen()) {
+      setWindowOpen(false);
+      showToast("ההזמנות נסגרו להיום");
+      return;
+    }
     setSending(true);
     const order = mealType === "main"
       ? { meal_type: "ארוחה עסקית", main, sides, salads }
@@ -352,11 +390,16 @@ export default function FoodOrderApp() {
               </div>
 
               {/* Submit */}
+              {!windowOpen && (
+                <p style={s.note}>
+                  ההזמנות סגורות כעת.
+                </p>
+              )}
               <button
-                style={{ ...s.submit, ...(isComplete && !sending ? {} : s.submitDisabled) }}
-                disabled={!isComplete || sending}
+                style={{ ...s.submit, ...(isComplete && windowOpen && !sending ? {} : s.submitDisabled) }}
+                disabled={!isComplete || !windowOpen || sending}
                 onClick={handleSubmit}>
-                {sending ? "שולח…" : done ? "עדכן הזמנה" : "שלח הזמנה"}
+                {sending ? "שולח…" : !windowOpen ? "ההזמנות סגורות" : done ? "עדכן הזמנה" : "שלח הזמנה"}
               </button>
 
               {done && !sending && (
