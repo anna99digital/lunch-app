@@ -260,7 +260,7 @@ export default function FoodOrderApp() {
             <h1 style={s.brand}>99 דיגיטל · הזמנת אוכל</h1>
             <div style={s.cateringRow}>
               <span style={s.cateringDot} />
-              <span style={s.cateringText}>בשיתוף מעדני אבי · שירותי קייטרינג</span>
+              <span style={s.cateringText}>מסעדת הבית - מעדני אבי</span>
             </div>
           </div>
           <span style={s.coverDate}>{TODAY_LABEL}</span>
