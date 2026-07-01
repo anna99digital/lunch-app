@@ -87,7 +87,7 @@ const PERSONAL_SALADS = [
 const HEALTH_SALADS = [
   "יווני - ירקות העונה, בולגרית",
   "טונה - טונה, ביצה קשה, ירקות",
-  "קליפורניה - ירקות טריים עם חזה עוף על האש (מנה מלאה)",
+  "קליפורניה - ירקות טריים עם חזה עוף על האש",
 ];
 
 const BAGUETTES = [
@@ -357,7 +357,7 @@ export default function FoodOrderApp() {
                     </Section>
                   )}
                   {isCalifornia && (
-                    <p style={s.note}>סלט קליפורניה הוא מנה מלאה — אין צורך בתוספת.</p>
+                    <p style={s.note}>סלט קליפורניה הוא מנה מלאה — ללא תוספת.</p>
                   )}
                 </>
               )}
