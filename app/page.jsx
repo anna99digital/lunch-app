@@ -100,7 +100,8 @@ const BAGUETTES = [
 // Opt-out choice for the quantity groups (toppings / personal salads). Picking
 // it clears everything else in the group and counts as a single, complete
 // selection on its own.
-const NONE = "לא מעוניין";
+const NONE_SIDES = "לא מעוניין בתוספות";
+const NONE_SALADS = "לא מעוניין בסלטים";
 
 const TODAY_KEY = JS_DAY_TO_KEY[new Date().getDay()];
 const TODAY_LABEL = new Date().toLocaleDateString("he-IL", { weekday: "long", day: "numeric", month: "long" });
@@ -187,9 +188,9 @@ export default function FoodOrderApp() {
 
   const addSide = (item) => {
     setDone(false);
-    if (item === NONE) { setSides([NONE]); return; }
+    if (item === NONE_SIDES) { setSides([NONE_SIDES]); return; }
     setSides((prev) => {
-      const base = prev.filter(x => x !== NONE);
+      const base = prev.filter(x => x !== NONE_SIDES);
       return base.length < 2 ? [...base, item] : base;
     });
   };
@@ -204,9 +205,9 @@ export default function FoodOrderApp() {
 
   const addSalad = (item) => {
     setDone(false);
-    if (item === NONE) { setSalads([NONE]); return; }
+    if (item === NONE_SALADS) { setSalads([NONE_SALADS]); return; }
     setSalads((prev) => {
-      const base = prev.filter(x => x !== NONE);
+      const base = prev.filter(x => x !== NONE_SALADS);
       return base.length < 2 ? [...base, item] : base;
     });
   };
@@ -224,10 +225,10 @@ export default function FoodOrderApp() {
   const nameReady = !!effectiveName;
 
   // A group is complete once it has 2 picks or the "לא מעוניין" opt-out.
-  const sidesDone = sides.includes(NONE) || sides.length === 2;
-  const saladsDone = salads.includes(NONE) || salads.length === 2;
-  const sidesHint = sides.includes(NONE) ? "לא מעוניין" : `${sides.length}/2 נבחרו`;
-  const saladsHint = salads.includes(NONE) ? "לא מעוניין" : `${salads.length}/2 נבחרו`;
+  const sidesDone = sides.includes(NONE_SIDES) || sides.length === 2;
+  const saladsDone = salads.includes(NONE_SALADS) || salads.length === 2;
+  const sidesHint = sides.includes(NONE_SIDES) ? "לא מעוניין" : `${sides.length}/2 נבחרו`;
+  const saladsHint = salads.includes(NONE_SALADS) ? "לא מעוניין" : `${salads.length}/2 נבחרו`;
 
   const mainComplete = main && sidesDone && saladsDone;
   const healthComplete = healthSalad && (healthSalad.startsWith("קליפורניה") || healthSide);
@@ -351,13 +352,13 @@ export default function FoodOrderApp() {
                   </Section>
 
                   <Section title="תוספות" hint={sidesHint}>
-                    <QtyChips items={[...menu.sides, NONE]} counts={countOf} arr={sides}
-                      onAdd={addSide} onRemove={removeSide} atLimit={sidesDone} noneItem={NONE} />
+                    <QtyChips items={[...menu.sides, NONE_SIDES]} counts={countOf} arr={sides}
+                      onAdd={addSide} onRemove={removeSide} atLimit={sidesDone} noneItem={NONE_SIDES} />
                   </Section>
 
                   <Section title="סלטים אישיים" hint={saladsHint}>
-                    <QtyChips items={[...PERSONAL_SALADS, NONE]} counts={countOf} arr={salads}
-                      onAdd={addSalad} onRemove={removeSalad} atLimit={saladsDone} noneItem={NONE} />
+                    <QtyChips items={[...PERSONAL_SALADS, NONE_SALADS]} counts={countOf} arr={salads}
+                      onAdd={addSalad} onRemove={removeSalad} atLimit={saladsDone} noneItem={NONE_SALADS} />
                   </Section>
                 </>
               )}
@@ -390,8 +391,8 @@ export default function FoodOrderApp() {
                   </Section>
 
                   <Section title="סלטים אישיים" hint={saladsHint}>
-                    <QtyChips items={[...PERSONAL_SALADS, NONE]} counts={countOf} arr={salads}
-                      onAdd={addSalad} onRemove={removeSalad} atLimit={saladsDone} noneItem={NONE} />
+                    <QtyChips items={[...PERSONAL_SALADS, NONE_SALADS]} counts={countOf} arr={salads}
+                      onAdd={addSalad} onRemove={removeSalad} atLimit={saladsDone} noneItem={NONE_SALADS} />
                   </Section>
                 </>
               )}
