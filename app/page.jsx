@@ -35,7 +35,7 @@ const COVER_URI = "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTQwMCIgaGVpZ2h0PSI
 const EMPLOYEES = [
   "יובל", "בועז", "קורל", "אן", "יבגני", "בר", "חגי", "עדן",
   "אנה", "נטע", "דניאל", "טל", "יוסף", "יהונתן", "ירין", "דין",
-  "ויקה", "איתי", "אייל", "אלה", "עידן", "אחר",
+  "ויקה", "איתי", "אייל", "אלה", "אחר",
 ];
 
 const DAYS = [
@@ -87,7 +87,7 @@ const PERSONAL_SALADS = [
 const HEALTH_SALADS = [
   "יווני - ירקות העונה, בולגרית",
   "טונה - טונה, ביצה קשה, ירקות",
-  "קליפורניה - ירקות טריים עם חזה עוף על האש",
+  "קליפורניה - ירקות טריים עם חזה עוף על האש (מנה מלאה)",
 ];
 
 const BAGUETTES = [
@@ -96,6 +96,11 @@ const BAGUETTES = [
   "באגט שניצל",
   "באגט חזה עוף",
 ];
+
+// Opt-out choice for the quantity groups (toppings / personal salads). Picking
+// it clears everything else in the group and counts as a single, complete
+// selection on its own.
+const NONE = "לא מעוניין";
 
 const TODAY_KEY = JS_DAY_TO_KEY[new Date().getDay()];
 const TODAY_LABEL = new Date().toLocaleDateString("he-IL", { weekday: "long", day: "numeric", month: "long" });
@@ -182,7 +187,11 @@ export default function FoodOrderApp() {
 
   const addSide = (item) => {
     setDone(false);
-    setSides((prev) => prev.length < 2 ? [...prev, item] : prev);
+    if (item === NONE) { setSides([NONE]); return; }
+    setSides((prev) => {
+      const base = prev.filter(x => x !== NONE);
+      return base.length < 2 ? [...base, item] : base;
+    });
   };
   const removeSide = (item) => {
     setDone(false);
@@ -195,7 +204,11 @@ export default function FoodOrderApp() {
 
   const addSalad = (item) => {
     setDone(false);
-    setSalads((prev) => prev.length < 2 ? [...prev, item] : prev);
+    if (item === NONE) { setSalads([NONE]); return; }
+    setSalads((prev) => {
+      const base = prev.filter(x => x !== NONE);
+      return base.length < 2 ? [...base, item] : base;
+    });
   };
   const removeSalad = (item) => {
     setDone(false);
@@ -210,9 +223,15 @@ export default function FoodOrderApp() {
   const effectiveName = isOther ? customName.trim() : employee;
   const nameReady = !!effectiveName;
 
-  const mainComplete = main && sides.length === 2 && salads.length === 2;
+  // A group is complete once it has 2 picks or the "לא מעוניין" opt-out.
+  const sidesDone = sides.includes(NONE) || sides.length === 2;
+  const saladsDone = salads.includes(NONE) || salads.length === 2;
+  const sidesHint = sides.includes(NONE) ? "לא מעוניין" : `${sides.length}/2 נבחרו`;
+  const saladsHint = salads.includes(NONE) ? "לא מעוניין" : `${salads.length}/2 נבחרו`;
+
+  const mainComplete = main && sidesDone && saladsDone;
   const healthComplete = healthSalad && (healthSalad.startsWith("קליפורניה") || healthSide);
-  const baguetteComplete = baguette && salads.length === 2;
+  const baguetteComplete = baguette && saladsDone;
   const isComplete = nameReady && (mealType === "main" ? mainComplete
     : mealType === "health" ? healthComplete
     : baguetteComplete);
@@ -260,7 +279,7 @@ export default function FoodOrderApp() {
             <h1 style={s.brand}>99 דיגיטל · הזמנת אוכל</h1>
             <div style={s.cateringRow}>
               <span style={s.cateringDot} />
-              <span style={s.cateringText}>מסעדת הבית - מעדני אבי</span>
+              <span style={s.cateringText}>בשיתוף מעדני אבי · שירותי קייטרינג</span>
             </div>
           </div>
           <span style={s.coverDate}>{TODAY_LABEL}</span>
@@ -331,14 +350,14 @@ export default function FoodOrderApp() {
                       onToggle={(i) => { setDone(false); setMain(i === main ? null : i); }} />
                   </Section>
 
-                  <Section title="תוספות" hint={`${sides.length}/2 נבחרו`}>
-                    <QtyChips items={menu.sides} counts={countOf} arr={sides}
-                      onAdd={addSide} onRemove={removeSide} atLimit={sides.length >= 2} />
+                  <Section title="תוספות" hint={sidesHint}>
+                    <QtyChips items={[...menu.sides, NONE]} counts={countOf} arr={sides}
+                      onAdd={addSide} onRemove={removeSide} atLimit={sidesDone} noneItem={NONE} />
                   </Section>
 
-                  <Section title="סלטים אישיים" hint={`${salads.length}/2 נבחרו`}>
-                    <QtyChips items={PERSONAL_SALADS} counts={countOf} arr={salads}
-                      onAdd={addSalad} onRemove={removeSalad} atLimit={salads.length >= 2} />
+                  <Section title="סלטים אישיים" hint={saladsHint}>
+                    <QtyChips items={[...PERSONAL_SALADS, NONE]} counts={countOf} arr={salads}
+                      onAdd={addSalad} onRemove={removeSalad} atLimit={saladsDone} noneItem={NONE} />
                   </Section>
                 </>
               )}
@@ -357,7 +376,7 @@ export default function FoodOrderApp() {
                     </Section>
                   )}
                   {isCalifornia && (
-                    <p style={s.note}>סלט קליפורניה הוא מנה מלאה — ללא תוספת.</p>
+                    <p style={s.note}>סלט קליפורניה הוא מנה מלאה — אין צורך בתוספת.</p>
                   )}
                 </>
               )}
@@ -370,9 +389,9 @@ export default function FoodOrderApp() {
                       onToggle={(i) => { setDone(false); setBaguette(i === baguette ? null : i); }} />
                   </Section>
 
-                  <Section title="סלטים אישיים" hint={`${salads.length}/2 נבחרו`}>
-                    <QtyChips items={PERSONAL_SALADS} counts={countOf} arr={salads}
-                      onAdd={addSalad} onRemove={removeSalad} atLimit={salads.length >= 2} />
+                  <Section title="סלטים אישיים" hint={saladsHint}>
+                    <QtyChips items={[...PERSONAL_SALADS, NONE]} counts={countOf} arr={salads}
+                      onAdd={addSalad} onRemove={removeSalad} atLimit={saladsDone} noneItem={NONE} />
                   </Section>
                 </>
               )}
@@ -456,10 +475,22 @@ function Chips({ items, selected, onToggle, atLimit }) {
 
 // Quantity chips: tap to add (same item can be added up to twice), with a
 // stepper showing count and a minus control once selected.
-function QtyChips({ items, counts, arr, onAdd, onRemove, atLimit }) {
+function QtyChips({ items, counts, arr, onAdd, onRemove, atLimit, noneItem }) {
+  const noneSelected = noneItem && arr.includes(noneItem);
   return (
     <div style={s.chips}>
       {items.map((item) => {
+        // The opt-out ("לא מעוניין") is a plain single-select toggle, not a
+        // quantity chip — no ×count stepper.
+        if (item === noneItem) {
+          return (
+            <button key={item}
+              onClick={() => noneSelected ? onRemove(item) : onAdd(item)}
+              style={{ ...s.chip, ...(noneSelected ? s.chipActive : {}) }}>
+              {item}
+            </button>
+          );
+        }
         const n = counts(arr, item);
         const isSel = n > 0;
         const canAdd = !atLimit;
