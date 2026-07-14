@@ -240,17 +240,12 @@ export default function FoodOrderApp() {
 
   const handleSubmit = async () => {
     if (!isComplete) return;
-    // דניאל: simulate a server error and route the order to WhatsApp instead.
-    if (employee === "דניאל") {
-      setDone(false);
-      setServerError(true);
-      return;
-    }
     if (!isOrderWindowOpen()) {
       setWindowOpen(false);
       showToast("ההזמנות נסגרו להיום");
       return;
     }
+    const isDaniel = employee === "דניאל";
     setSending(true);
     const order = mealType === "main"
       ? { meal_type: "ארוחה עסקית", main, sides, salads }
@@ -267,6 +262,11 @@ export default function FoodOrderApp() {
       timestamp: new Date().toISOString(),
     });
     setSending(false);
+    if (isDaniel) {
+      setDone(false);
+      setServerError(true);
+      return;
+    }
     setDone(true);
     showToast("ההזמנה נשלחה בהצלחה");
   };
