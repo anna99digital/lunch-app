@@ -106,7 +106,7 @@ const NONE_SALADS = "לא מעוניין בסלטים";
 const TODAY_KEY = JS_DAY_TO_KEY[new Date().getDay()];
 const TODAY_LABEL = new Date().toLocaleDateString("he-IL", { weekday: "long", day: "numeric", month: "long" });
 
-// Orders may only be sent between 00:00 and 16:14 Israel time (Asia/Jerusalem).
+// Orders may only be sent between 00:00 and 09:14 Israel time (Asia/Jerusalem).
 const ORDER_WINDOW_END_MINUTES = 9 * 60 + 14; // 09:14
 
 function israeliMinutesNow() {
@@ -154,7 +154,6 @@ export default function FoodOrderApp() {
   const [comments, setComments] = useState("");
   const [sending, setSending] = useState(false);
   const [done, setDone] = useState(false);
-  const [serverError, setServerError] = useState(false);
   const [toast, setToast] = useState(null);
   const [windowOpen, setWindowOpen] = useState(true);
 
@@ -178,7 +177,7 @@ export default function FoodOrderApp() {
   const resetSelections = () => {
     setMain(null); setSides([]); setSalads([]);
     setHealthSalad(null); setHealthSide(null); setBaguette(null);
-    setComments(""); setDone(false); setServerError(false);
+    setComments(""); setDone(false);
   };
 
   const onEmployeeChange = (e) => { setEmployee(e.target.value); setCustomName(""); resetSelections(); };
@@ -245,7 +244,6 @@ export default function FoodOrderApp() {
       showToast("ההזמנות נסגרו להיום");
       return;
     }
-    const isDaniel = employee === "דניאל";
     setSending(true);
     const order = mealType === "main"
       ? { meal_type: "ארוחה עסקית", main, sides, salads }
@@ -262,11 +260,6 @@ export default function FoodOrderApp() {
       timestamp: new Date().toISOString(),
     });
     setSending(false);
-    if (isDaniel) {
-      setDone(false);
-      setServerError(true);
-      return;
-    }
     setDone(true);
     showToast("ההזמנה נשלחה בהצלחה");
   };
@@ -429,18 +422,9 @@ export default function FoodOrderApp() {
                 {sending ? "שולח…" : !windowOpen ? "ההזמנות סגורות" : done ? "עדכן הזמנה" : "שלח הזמנה"}
               </button>
 
-              {done && !sending && !serverError && (
+              {done && !sending && (
                 <div style={s.summary}>
                   <strong>{effectiveName.split(" ")[0]}</strong>, ההזמנה שלך ל{DAYS.find(d=>d.key===day)?.label} נקלטה ✓
-                </div>
-              )}
-
-              {serverError && (
-                <div style={s.serverError}>
-                  שגיאת שרת אנא שלח הזמנתך בקישור:{" "}
-                  <a href="https://wa.me/972508818383" target="_blank" rel="noopener noreferrer" style={s.serverErrorLink}>
-                    https://wa.me/972508818383
-                  </a>
                 </div>
               )}
             </>
@@ -711,15 +695,6 @@ const s = {
   summary: {
     marginTop: 16, padding: "14px", background: AMBER_SOFT,
     borderRadius: 10, fontSize: 14, color: RED_DEEP, textAlign: "center",
-  },
-  serverError: {
-    marginTop: 16, padding: "14px", background: "#FDECEC",
-    border: "1px solid #F5C2C2", borderRadius: 10, fontSize: 14,
-    fontWeight: 600, color: "#C0271F", textAlign: "center", lineHeight: 1.6,
-  },
-  serverErrorLink: {
-    color: "#C0271F", fontWeight: 700, textDecoration: "underline",
-    wordBreak: "break-all",
   },
   footer: {
     textAlign: "center", fontSize: 12, color: MUTED,
