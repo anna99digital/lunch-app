@@ -107,7 +107,7 @@ const TODAY_KEY = JS_DAY_TO_KEY[new Date().getDay()];
 const TODAY_LABEL = new Date().toLocaleDateString("he-IL", { weekday: "long", day: "numeric", month: "long" });
 
 // Orders may only be sent between 00:00 and 09:14 Israel time (Asia/Jerusalem).
-const ORDER_WINDOW_END_MINUTES = 9 * 60 + 14; // 09:14
+const ORDER_WINDOW_END_MINUTES = 12 * 60 + 14; // 09:14
 
 function israeliMinutesNow() {
   // Current time-of-day in minutes, evaluated in the Asia/Jerusalem timezone
