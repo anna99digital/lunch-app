@@ -107,7 +107,7 @@ const TODAY_KEY = JS_DAY_TO_KEY[new Date().getDay()];
 const TODAY_LABEL = new Date().toLocaleDateString("he-IL", { weekday: "long", day: "numeric", month: "long" });
 
 // Orders may only be sent between 00:00 and 09:14 Israel time (Asia/Jerusalem).
-const ORDER_WINDOW_END_MINUTES = 9 * 60 + 14; // 09:14
+const ORDER_WINDOW_END_MINUTES = 15 * 60 + 14; // 09:14
 
 function israeliMinutesNow() {
   // Current time-of-day in minutes, evaluated in the Asia/Jerusalem timezone
@@ -128,16 +128,33 @@ function isOrderWindowOpen() {
   return m >= 0 && m <= ORDER_WINDOW_END_MINUTES;
 }
 
+// Throws if the order did not reach the webhook — the caller relies on this to
+// decide whether to show the confirmation window.
 async function sendToWebhook(payload) {
-  try {
-    await fetch(WEBHOOK_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-  } catch (e) {
-    console.error("Webhook error:", e);
+  const res = await fetch(WEBHOOK_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error(`Webhook responded ${res.status}`);
+}
+
+// Human-readable summary rows for the confirmation window.
+function orderLines(o) {
+  const lines = [];
+  if (o.meal_type === "ארוחה עסקית") {
+    lines.push(["מנה עיקרית", o.main]);
+    lines.push(["תוספות", o.sides.join(" · ")]);
+    lines.push(["סלטים אישיים", o.salads.join(" · ")]);
+  } else if (o.meal_type === "סלט בריאות") {
+    lines.push(["סלט בריאות", o.health_salad]);
+    if (o.side) lines.push(["תוספת", o.side]);
+  } else {
+    lines.push(["באגט", o.baguette]);
+    lines.push(["סלטים אישיים", o.salads.join(" · ")]);
   }
+  if (o.comments) lines.push(["הערות", o.comments]);
+  return lines;
 }
 
 export default function FoodOrderApp() {
@@ -154,6 +171,7 @@ export default function FoodOrderApp() {
   const [comments, setComments] = useState("");
   const [sending, setSending] = useState(false);
   const [done, setDone] = useState(false);
+  const [confirmation, setConfirmation] = useState(null); // set only after the webhook accepted the order
   const [toast, setToast] = useState(null);
   const [windowOpen, setWindowOpen] = useState(true);
 
@@ -169,8 +187,8 @@ export default function FoodOrderApp() {
 
   const menu = MENU[day];
 
-  const showToast = (msg) => {
-    setToast(msg);
+  const showToast = (msg, ok = true) => {
+    setToast({ msg, ok });
     setTimeout(() => setToast(null), 2800);
   };
 
@@ -241,7 +259,7 @@ export default function FoodOrderApp() {
     if (!isComplete) return;
     if (!isOrderWindowOpen()) {
       setWindowOpen(false);
-      showToast("ההזמנות נסגרו להיום");
+      showToast("ההזמנות נסגרו להיום", false);
       return;
     }
     setSending(true);
@@ -250,7 +268,7 @@ export default function FoodOrderApp() {
       : mealType === "health"
       ? { meal_type: "סלט בריאות", health_salad: healthSalad, side: healthSalad.startsWith("קליפורניה") ? null : healthSide }
       : { meal_type: "באגט", baguette, salads };
-    await sendToWebhook({
+    const payload = {
       employee: effectiveName,
       is_custom_name: isOther,
       day: DAYS.find(d => d.key === day)?.label,
@@ -258,10 +276,19 @@ export default function FoodOrderApp() {
       comments: comments.trim() || null,
       action: done ? "changed" : "selected",
       timestamp: new Date().toISOString(),
-    });
-    setSending(false);
+    };
+    try {
+      await sendToWebhook(payload);
+    } catch (e) {
+      console.error("Webhook error:", e);
+      showToast("שליחת ההזמנה נכשלה — נסה/י שוב", false);
+      return;
+    } finally {
+      setSending(false);
+    }
+    // Only reached when the webhook actually accepted the order.
     setDone(true);
-    showToast("ההזמנה נשלחה בהצלחה");
+    setConfirmation(payload);
   };
 
   const isCalifornia = healthSalad?.startsWith("קליפורניה");
@@ -269,7 +296,15 @@ export default function FoodOrderApp() {
   return (
     <div style={s.page} dir="rtl">
       <style>{cssReset}</style>
-      {toast && <div style={s.toast}>✓ {toast}</div>}
+      {toast && (
+        <div style={{ ...s.toast, ...(toast.ok ? {} : s.toastError) }}>
+          {toast.ok ? "✓" : "✕"} {toast.msg}
+        </div>
+      )}
+
+      {confirmation && (
+        <ConfirmWindow order={confirmation} onClose={() => setConfirmation(null)} />
+      )}
 
       {/* Header */}
       <header style={s.header}>
@@ -519,6 +554,38 @@ function QtyChips({ items, counts, arr, onAdd, onRemove, atLimit, noneItem }) {
   );
 }
 
+// Confirmation window, shown only once the webhook has accepted the order.
+function ConfirmWindow({ order, onClose }) {
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  return (
+    <div style={s.overlay} onClick={onClose} role="dialog" aria-modal="true">
+      <div style={s.modal} onClick={(e) => e.stopPropagation()}>
+        <div style={s.modalMark}>✓</div>
+        <h2 style={s.modalTitle}>ההזמנה נשלחה בהצלחה</h2>
+        <p style={s.modalSub}>
+          {order.employee.split(" ")[0]}, ההזמנה שלך ל{order.day} נקלטה במטבח.
+        </p>
+
+        <div style={s.modalBox}>
+          {orderLines(order).map(([label, value], i, all) => (
+            <div key={label} style={{ ...s.modalRow, ...(i === all.length - 1 ? { borderBottom: "none" } : {}) }}>
+              <span style={s.modalRowLabel}>{label}</span>
+              <span style={s.modalRowValue}>{value}</span>
+            </div>
+          ))}
+        </div>
+
+        <button style={s.modalBtn} onClick={onClose}>סגור</button>
+      </div>
+    </div>
+  );
+}
+
 const cssReset = `
   @import url('https://fonts.googleapis.com/css2?family=Assistant:wght@400;500;600;700;800&display=swap');
   select:focus { border-color:#1B9E63 !important; box-shadow:0 0 0 3px rgba(27,158,99,0.12); }
@@ -705,5 +772,45 @@ const s = {
     background: INK, color: "#fff", padding: "11px 24px", borderRadius: 50,
     fontSize: 14, fontWeight: 600, zIndex: 999,
     boxShadow: "0 6px 24px rgba(0,0,0,0.2)",
+  },
+  toastError: { background: "#B3261E" },
+  overlay: {
+    position: "fixed", inset: 0, zIndex: 1000,
+    background: "rgba(11,58,29,0.55)", backdropFilter: "blur(3px)",
+    display: "flex", alignItems: "center", justifyContent: "center",
+    padding: 20,
+  },
+  modal: {
+    background: "#fff", borderRadius: 18, padding: "28px 24px 22px",
+    width: "100%", maxWidth: 420, maxHeight: "85vh", overflowY: "auto",
+    boxShadow: "0 18px 50px rgba(0,0,0,0.28)", textAlign: "center",
+  },
+  modalMark: {
+    width: 56, height: 56, borderRadius: "50%", margin: "0 auto 14px",
+    background: `linear-gradient(135deg, ${RED} 0%, ${RED_DEEP} 100%)`,
+    color: "#fff", fontSize: 28, fontWeight: 800,
+    display: "flex", alignItems: "center", justifyContent: "center",
+    boxShadow: "0 6px 18px rgba(27,158,99,0.35)",
+  },
+  modalTitle: { fontSize: 21, fontWeight: 800, color: INK, margin: "0 0 6px" },
+  modalSub: { fontSize: 14, color: MUTED, margin: "0 0 18px", lineHeight: 1.5 },
+  modalBox: {
+    background: CREAM, border: `1px solid ${LINE}`, borderRadius: 12,
+    padding: "6px 14px", textAlign: "right", marginBottom: 18,
+  },
+  modalRow: {
+    display: "flex", gap: 12, alignItems: "baseline",
+    padding: "9px 0", borderBottom: `1px solid ${LINE}`,
+  },
+  modalRowLabel: {
+    fontSize: 12.5, fontWeight: 700, color: MUTED,
+    flexShrink: 0, minWidth: 88,
+  },
+  modalRowValue: { fontSize: 14, fontWeight: 600, color: INK, lineHeight: 1.45 },
+  modalBtn: {
+    width: "100%", padding: "14px", border: "none", borderRadius: 12,
+    background: `linear-gradient(135deg, ${RED} 0%, ${RED_DEEP} 100%)`,
+    color: "#fff", fontSize: 15, fontWeight: 800, cursor: "pointer",
+    boxShadow: "0 4px 14px rgba(27,158,99,0.30)",
   },
 };
